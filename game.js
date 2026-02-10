@@ -672,6 +672,8 @@
 
   function openUpgrade() {
     state.mode = 'upgrade';
+    // Upgrade 화면에서는 글씨 가독성이 중요해서 화면 흔들림을 끔
+    state.shake = 0;
     state.upgradeChoices = pick3Upgrades();
     state.uiUpgradeBoxes = null;
   }
@@ -943,8 +945,6 @@
     // score tick
     state.score += dt * 3 * state.scoreMult;
 
-    // camera shake decay
-    state.shake = Math.max(0, state.shake - dt * 32);
   }
 
   // ----- Draw -----
@@ -970,7 +970,8 @@
   }
 
   function draw() {
-    const s = state.shake;
+    // 화면 흔들림은 플레이 중에만 (업그레이드/타이틀/일시정지/게임오버에선 가독성 우선)
+    const s = (state.mode === 'playing' && !state.gameOver) ? state.shake : 0;
     const ox = s > 0 ? rand(-s, s) : 0;
     const oy = s > 0 ? rand(-s, s) : 0;
 
@@ -1402,6 +1403,10 @@
     state.t += dt;
 
     update(dt);
+
+    // camera shake decay (모드 무관하게 서서히 감소)
+    state.shake = Math.max(0, state.shake - dt * 32);
+
     updateHud();
     draw();
 
