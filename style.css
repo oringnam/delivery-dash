@@ -9,23 +9,38 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40%, #111a3a 0%, var(--bg) 60%);color:var(--fg);font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;}
 
-#wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:14px;}
+#wrap{
+  height:100svh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:10px;
+  padding:10px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom));
+}
 
 #game{
-  width:min(94vw, 640px);
-  max-height:78vh;
+  width:min(96vw, 680px);
+  /* map should take almost all vertical space (except bottom controls) */
+  max-height:calc(100svh - 210px);
   aspect-ratio: 9 / 16;
   display:block;
   background: linear-gradient(180deg, rgba(10,14,30,.8), rgba(7,10,18,.95));
   border:1px solid rgba(255,255,255,.12);
   border-radius:14px;
   box-shadow:0 20px 60px rgba(0,0,0,.55);
-  /* 모바일에서 스크롤/줌 제스처 방지 (게임 입력 우선) */
   touch-action: none;
 }
 
 /* Mobile gamepad UI */
-.controls{width:min(94vw, 640px);display:none;justify-content:space-between;align-items:center;gap:14px;}
+.controls{
+  width:min(96vw, 680px);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
 
 .pad-left{
   position:relative;
@@ -77,8 +92,10 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
 }
 
 .pad-dash{
-  width:clamp(140px, 36vw, 200px);
-  height:clamp(140px, 36vw, 200px);
+  -webkit-appearance:none;
+  appearance:none;
+  width:clamp(140px, 36vw, 220px);
+  height:clamp(140px, 36vw, 220px);
   border-radius:18px;
   border:1px solid rgba(255,255,255,.12);
   background:rgba(14,19,35,.45);
@@ -89,6 +106,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
   box-shadow:0 12px 34px rgba(0,0,0,.35);
   touch-action:none;
 }
+.pad-dash:active{transform:translateY(1px)}
 
 .pad-dash.ready{
   border-color:rgba(86,240,194,.55);
@@ -104,7 +122,8 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
 .pill{background:var(--panel);border:1px solid rgba(255,255,255,.10);backdrop-filter: blur(8px);border-radius:999px;padding:8px 12px;font-size:14px;color:var(--muted);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #toast{margin-top:10px;min-height:24px;color:rgba(255,255,255,.85);font-size:14px;text-align:center;text-shadow: 0 1px 0 rgba(0,0,0,.45);}
 
-@media (pointer: coarse){
-  .controls{display:flex;}
-  #game{max-height:62vh;}
+@media (pointer: fine){
+  /* desktop: hide on-screen controls */
+  .controls{display:none;}
+  #game{max-height:92vh; aspect-ratio:16/9; width:min(96vw, 1200px);} 
 }

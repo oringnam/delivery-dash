@@ -10,6 +10,7 @@
   const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
+  const BUILD = '20260210-2355';
 
   const hudLeft = document.getElementById('hud-left');
   const hudRight = document.getElementById('hud-right');
@@ -1390,7 +1391,7 @@
     const t = `${Math.ceil(state.timeLeft)}s`;
     const modeTag = state.mode === 'upgrade' ? 'UPGRADE' : (state.carry ? 'CARRY' : 'EMPTY');
     hudLeft.textContent = `점수 ${Math.floor(state.score)} · 배달 ${state.deliveries} · ${modeTag}`;
-    hudRight.textContent = `시간 ${t} · HP ${p ? p.hp : '-'} · 드론 ${state.drones.length} · 대시 ${dash}`;
+    hudRight.textContent = `시간 ${t} · HP ${p ? p.hp : '-'} · 드론 ${state.drones.length} · 대시 ${dash} · v${BUILD}`;
   }
 
   function loop(ts) {
