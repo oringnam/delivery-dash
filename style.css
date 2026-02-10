@@ -15,22 +15,23 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
   grid-template-rows:auto minmax(0, 1fr) auto;
   justify-items:center;
   align-items:center;
-  gap:10px;
-  padding:10px;
-  padding-bottom:calc(10px + env(safe-area-inset-bottom));
+  gap:8px;
+  padding:6px;
+  padding-bottom:calc(6px + env(safe-area-inset-bottom));
 }
 
 #hud{
   position:relative;
-  width:min(96vw, 680px);
+  width:min(98vw, 720px);
   pointer-events:none;
-  padding:4px 2px 0;
+  padding:2px 2px 0;
 }
 
 #game{
-  height:100%;
-  width:auto;
-  max-width:min(96vw, 680px);
+  /* fill available width first, then clamp by available height */
+  width:min(98vw, 720px);
+  height:auto;
+  max-height:100%;
   aspect-ratio: 9 / 16;
   display:block;
   background: linear-gradient(180deg, rgba(10,14,30,.8), rgba(7,10,18,.95));
@@ -42,7 +43,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
 
 /* Mobile gamepad UI */
 .controls{
-  width:min(96vw, 680px);
+  width:min(98vw, 720px);
   display:flex;
   justify-content:space-between;
   align-items:center;

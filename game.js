@@ -10,7 +10,12 @@
   const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
-  const BUILD = '20260210-2359';
+  const BUILD = '20260211-0006';
+
+  // Level-up pacing: 3회 배달 -> 8회 -> 13회 ... (매번 +5)
+  const LEVELUP_START = 3;
+  const LEVELUP_STEP = 5;
+  const nextLevelUpAt = (levelUpCount) => LEVELUP_START + levelUpCount * LEVELUP_STEP;
 
   const hudLeft = document.getElementById('hud-left');
   const hudRight = document.getElementById('hud-right');
@@ -261,6 +266,11 @@
     score: 0,
     scoreMult: 1,
     deliveries: 0,
+
+    // level-ups
+    levelUpCount: 0,
+    nextLevelUpAt: LEVELUP_START,
+
     gameOver: false,
 
     enemySpeedMult: 1,
@@ -466,7 +476,7 @@
         // avoid spawning too close to the player's initial area
         const cx = x + w * 0.5;
         const cy = y + h * 0.5;
-        if (Math.hypot(cx - avoidX, cy - avoidY) < 160) continue;
+        if (Math.hypot(cx - avoidX, cy - avoidY) < 170) continue;
 
         // avoid overlaps with other obstacles
         let ok = true;
@@ -485,11 +495,113 @@
     }
   }
 
+  function navReachable(ax, ay, bx, by, clearR) {
+    const step = 26;
+    const cols = Math.ceil(W / step);
+    const rows = Math.ceil(H / step);
+
+    const toCell = (x, y) => {
+      const cx = clamp(Math.floor(x / step), 0, cols - 1);
+      const cy = clamp(Math.floor(y / step), 0, rows - 1);
+      return [cx, cy];
+    };
+
+    const [sx, sy] = toCell(ax, ay);
+    const [gx, gy] = toCell(bx, by);
+
+    const idx = (x, y) => y * cols + x;
+    const visited = new Uint8Array(cols * rows);
+    const qx = new Int16Array(cols * rows);
+    const qy = new Int16Array(cols * rows);
+    let qh = 0, qt = 0;
+
+    const cellFree = (x, y) => {
+      const px = x * step + step * 0.5;
+      const py = y * step + step * 0.5;
+      if (px < clearR || px > W - clearR || py < clearR || py > H - clearR) return false;
+      return !circleHitsObstacles(px, py, clearR);
+    };
+
+    if (!cellFree(sx, sy) || !cellFree(gx, gy)) return false;
+
+    visited[idx(sx, sy)] = 1;
+    qx[qt] = sx; qy[qt] = sy; qt++;
+
+    while (qh < qt) {
+      const x = qx[qh];
+      const y = qy[qh];
+      qh++;
+
+      if (x === gx && y === gy) return true;
+
+      const nbs = [
+        [x + 1, y],
+        [x - 1, y],
+        [x, y + 1],
+        [x, y - 1],
+      ];
+
+      for (const [nx, ny] of nbs) {
+        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+        const id = idx(nx, ny);
+        if (visited[id]) continue;
+        if (!cellFree(nx, ny)) continue;
+        visited[id] = 1;
+        qx[qt] = nx; qy[qt] = ny; qt++;
+      }
+    }
+
+    return false;
+  }
+
+  function rerollMap(reason = 'start') {
+    const p = state.player;
+    if (!p) return;
+
+    // When the map changes, re-center player a bit so it never spawns inside obstacles.
+    if (reason === 'start') {
+      p.x = W * 0.5;
+      p.y = H * 0.62;
+      p.vx = 0; p.vy = 0;
+    }
+    if (reason === 'levelup') {
+      p.x = W * 0.5;
+      p.y = H * 0.62;
+      p.vx = 0; p.vy = 0;
+    }
+
+    const clearR = p.r + 10;
+
+    for (let attempt = 0; attempt < 28; attempt++) {
+      spawnObstacles();
+      spawnPackage();
+      spawnDropZone();
+
+      // ensure we have at least one valid route
+      if (!state.pkg || !state.drop) continue;
+      if (!navReachable(p.x, p.y, state.pkg.x, state.pkg.y, clearR)) continue;
+      if (!navReachable(state.pkg.x, state.pkg.y, state.drop.x, state.drop.y, clearR)) continue;
+      if (!navReachable(p.x, p.y, state.drop.x, state.drop.y, clearR)) continue;
+
+      resolveCircleVsObstacles(p, p.r);
+      return;
+    }
+
+    // fallback: no obstacles
+    state.obstacles = [];
+    spawnPackage();
+    spawnDropZone();
+  }
+
   function resetWorld() {
     state.t = 0;
     state.score = 0;
     state.scoreMult = 1;
     state.deliveries = 0;
+
+    state.levelUpCount = 0;
+    state.nextLevelUpAt = LEVELUP_START;
+
     state.difficulty = 0;
     state.enemySpeedMult = 1;
 
@@ -510,15 +622,8 @@
     state.upgradeChoices = null;
     state.uiUpgradeBoxes = null;
 
-    spawnObstacles();
-    spawnPackage();
-    spawnDropZone();
-
-    state.upgradeChoices = null;
-    state.uiUpgradeBoxes = null;
-
-    spawnPackage();
-    spawnDropZone();
+    // Build a new map + ensure routes exist
+    rerollMap('start');
 
     // Start with 1 chaser.
     spawnDroneAtEdge(1, true);
@@ -809,13 +914,24 @@
         if (state.deliveries % 3 === 0) spawnDroneAtEdge(1);
         if (state.deliveries % 2 === 0) spawnMine();
 
+        // Level-up pacing: only at certain deliveries (3 -> 8 -> 13 ...)
+        const shouldLevelUp = state.deliveries >= state.nextLevelUpAt;
+
+        if (shouldLevelUp) {
+          state.levelUpCount += 1;
+          state.nextLevelUpAt = nextLevelUpAt(state.levelUpCount);
+
+          // Map changes on every level-up
+          rerollMap('levelup');
+
+          openUpgrade();
+          toast(isTouchDevice ? '업그레이드 탭해서 선택' : '업그레이드 선택: 1/2/3', 1200);
+          return;
+        }
+
+        // normal next route
         spawnPackage();
         spawnDropZone();
-
-        // Upgrade choice!
-        openUpgrade();
-        toast(isTouchDevice ? '업그레이드 탭해서 선택' : '업그레이드 선택: 1/2/3', 1200);
-        return;
       }
     }
 
@@ -1230,37 +1346,54 @@
     ctx.fillStyle = 'rgba(0,0,0,.46)';
     ctx.fillRect(0, 0, W, H);
 
+    const margin = 18;
+    const panelW = Math.min(600, W - margin * 2);
+    const innerPad = 18;
+    const cardH = 76;
+    const cardGap = 12;
+    const headerH = 98;
+    const cardsH = cardH * 3 + cardGap * 2;
+    const panelH = Math.min(H - margin * 2, headerH + cardsH + innerPad);
+
+    const px = W * 0.5 - panelW * 0.5;
+    const py = clamp(H * 0.5 - panelH * 0.5, margin, H - margin - panelH);
+
     // panel
     ctx.fillStyle = 'rgba(14,19,35,.78)';
-    roundRect(ctx, W * 0.5 - 300, H * 0.5 - 170, 600, 340, 18);
+    roundRect(ctx, px, py, panelW, panelH, 18);
     ctx.fill();
 
     ctx.strokeStyle = 'rgba(255,255,255,.12)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
+    const titleY = py + 40;
+    const hintY = py + 66;
+
     ctx.fillStyle = COLORS.fg;
-    ctx.font = '700 32px ui-sans-serif, system-ui';
+    ctx.font = '700 30px ui-sans-serif, system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('업그레이드 선택', W * 0.5, H * 0.5 - 130);
+    ctx.fillText('업그레이드 선택', W * 0.5, titleY);
 
     ctx.fillStyle = 'rgba(232,238,252,.75)';
     ctx.font = '14px ui-sans-serif, system-ui';
     const hint = isTouchDevice ? '카드 탭해서 선택' : '1 / 2 / 3 키로 선택';
-    ctx.fillText(hint, W * 0.5, H * 0.5 - 104);
+    ctx.fillText(hint, W * 0.5, hintY);
 
     // cards
     const boxes = [];
-    const cardW = 520;
-    const cardH = 76;
+    const cardW = Math.min(520, panelW - innerPad * 2);
     const x = W * 0.5 - cardW * 0.5;
-    let y = H * 0.5 - 70;
+    let y = py + headerH;
+    // keep cards fully inside the panel
+    const maxY = py + panelH - innerPad - (cardH * 3 + cardGap * 2);
+    y = Math.min(y, maxY);
 
     for (let i = 0; i < 3; i++) {
       const u = choices[i];
       const bx = x;
-      const by = y + i * (cardH + 14);
+      const by = y + i * (cardH + cardGap);
 
       boxes.push({ x: bx, y: by, w: cardW, h: cardH });
 
