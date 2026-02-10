@@ -1,0 +1,27 @@
+:root{
+  --bg:#070a12;
+  --fg:#e8eefc;
+  --muted:#a5b3d6;
+  --accent:#56f0c2;
+  --danger:#ff4d6d;
+  --panel:rgba(14,19,35,.72);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40%, #111a3a 0%, var(--bg) 60%);color:var(--fg);font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;}
+#wrap{height:100%;display:grid;place-items:center;padding:18px;}
+#game{
+  width:min(96vw, 1200px);
+  max-height: 92vh;
+  aspect-ratio: 16 / 9;
+  display:block;
+  background: linear-gradient(180deg, rgba(10,14,30,.8), rgba(7,10,18,.95));
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.55);
+  /* 모바일에서 스크롤/줌 제스처 방지 (게임 터치 우선) */
+  touch-action: none;
+}
+#hud{position:fixed;left:0;right:0;top:0;pointer-events:none;padding:14px 16px;}
+.row{display:flex;gap:10px;justify-content:space-between;align-items:center;}
+.pill{background:var(--panel);border:1px solid rgba(255,255,255,.10);backdrop-filter: blur(8px);border-radius:999px;padding:8px 12px;font-size:14px;color:var(--muted);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#toast{margin-top:10px;min-height:24px;color:rgba(255,255,255,.85);font-size:14px;text-align:center;text-shadow: 0 1px 0 rgba(0,0,0,.45);}
