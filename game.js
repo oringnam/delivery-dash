@@ -10,7 +10,7 @@
   const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
-  const BUILD = '20260210-2355';
+  const BUILD = '20260210-2358';
 
   const hudLeft = document.getElementById('hud-left');
   const hudRight = document.getElementById('hud-right');
