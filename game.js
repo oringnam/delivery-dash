@@ -40,6 +40,38 @@
     }
   })();
 
+  // Mobile: 웹은 기본 가로모드 "강제"가 불가해서,
+  // 1) 가능하면 Screen Orientation API로 landscape lock 시도 (유저 제스처 필요)
+  // 2) 안 되면 세로일 때 안내 오버레이를 띄움
+  function isPortrait() {
+    try {
+      return window.matchMedia?.('(orientation: portrait)')?.matches ?? (window.innerHeight > window.innerWidth);
+    } catch {
+      return window.innerHeight > window.innerWidth;
+    }
+  }
+
+  function updatePortraitClass() {
+    if (!isTouchDevice) return;
+    document.body.classList.toggle('portrait', isPortrait());
+  }
+
+  async function requestLandscapeLock() {
+    if (!isTouchDevice) return;
+    try {
+      if (screen.orientation?.lock) {
+        await screen.orientation.lock('landscape');
+      }
+    } catch {
+      // ignore
+    }
+    updatePortraitClass();
+  }
+
+  window.addEventListener('resize', updatePortraitClass, { passive: true });
+  window.addEventListener('orientationchange', updatePortraitClass, { passive: true });
+  updatePortraitClass();
+
   // Touch controls: left-half virtual stick, right-half tap = dash
   const touch = {
     stick: { active: false, pointerId: null, baseX: 0, baseY: 0, curX: 0, curY: 0, radiusCss: 60 },
@@ -101,8 +133,8 @@
     canvas.setPointerCapture?.(e.pointerId);
 
     // Tap to start/restart (mobile friendly)
-    if (state.mode === 'title') { startGame(); return; }
-    if (state.gameOver) { startGame(); return; }
+    if (state.mode === 'title') { requestLandscapeLock(); startGame(); return; }
+    if (state.gameOver) { requestLandscapeLock(); startGame(); return; }
 
     const ev = eventToWorld(e);
 

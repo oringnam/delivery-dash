@@ -25,3 +25,12 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
 .row{display:flex;gap:10px;justify-content:space-between;align-items:center;}
 .pill{background:var(--panel);border:1px solid rgba(255,255,255,.10);backdrop-filter: blur(8px);border-radius:999px;padding:8px 12px;font-size:14px;color:var(--muted);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #toast{margin-top:10px;min-height:24px;color:rgba(255,255,255,.85);font-size:14px;text-align:center;text-shadow: 0 1px 0 rgba(0,0,0,.45);}
+
+/* --- Mobile portrait hint overlay (웹에선 가로모드 강제 불가 → 안내 오버레이) --- */
+#rotate-hint{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter: blur(6px);z-index:50;pointer-events:none;padding:18px;}
+#rotate-hint .rotate-card{background:rgba(14,19,35,.86);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:16px 18px;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.55);}
+#rotate-hint .rotate-title{font-size:18px;font-weight:700;margin-bottom:6px;color:rgba(255,255,255,.95);}
+#rotate-hint .rotate-sub{font-size:13px;color:rgba(255,255,255,.72);}
+
+body.portrait #rotate-hint{display:flex;}
+
