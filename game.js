@@ -10,7 +10,7 @@
   const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
-  const BUILD = '20260211-0006';
+  const BUILD = '20260211-0016';
 
   // Level-up pacing: 3회 배달 -> 8회 -> 13회 ... (매번 +5)
   const LEVELUP_START = 3;
@@ -558,17 +558,10 @@
     const p = state.player;
     if (!p) return;
 
-    // When the map changes, re-center player a bit so it never spawns inside obstacles.
-    if (reason === 'start') {
-      p.x = W * 0.5;
-      p.y = H * 0.62;
-      p.vx = 0; p.vy = 0;
-    }
-    if (reason === 'levelup') {
-      p.x = W * 0.5;
-      p.y = H * 0.62;
-      p.vx = 0; p.vy = 0;
-    }
+    // When the map changes, re-center player so it never spawns inside obstacles.
+    p.x = W * 0.5;
+    p.y = H * 0.62;
+    p.vx = 0; p.vy = 0;
 
     const clearR = p.r + 10;
 
@@ -584,6 +577,19 @@
       if (!navReachable(p.x, p.y, state.drop.x, state.drop.y, clearR)) continue;
 
       resolveCircleVsObstacles(p, p.r);
+
+      if (reason === 'levelup') {
+        // If obstacles changed mid-run, clear things that can end up inside new walls.
+        state.mines = [];
+        state.explosions = [];
+        state.bullets = [];
+
+        // Re-spawn drones so they never start embedded in a new wall.
+        const keep = Math.max(1, state.drones.length);
+        state.drones = [];
+        spawnDroneAtEdge(keep);
+      }
+
       return;
     }
 
