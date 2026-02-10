@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#070a12" />
 
-  <!-- PWA (Android 홈화면 추가 시 가로 모드 기본) -->
+  <!-- PWA (홈 화면에 추가해서 실행 시 UI/몰입감 개선) -->
   <link rel="manifest" href="manifest.webmanifest" />
 
-  <!-- iOS 홈화면 추가(standalone)용: iOS는 orientation lock 지원이 약해서 안내 오버레이로 처리 -->
+  <!-- iOS 홈화면 추가(standalone)용 -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
@@ -17,20 +17,27 @@
 </head>
 <body>
   <div id="wrap">
-    <canvas id="game" width="960" height="540" aria-label="Delivery Dash"></canvas>
+    <!-- Portrait map: taller arena -->
+    <canvas id="game" width="540" height="960" aria-label="Delivery Dash"></canvas>
+
+    <!-- Mobile gamepad UI (shown on touch devices) -->
+    <div id="controls" class="controls" aria-hidden="true">
+      <div id="pad-left" class="pad-left" aria-label="Move">
+        <div class="stick-base" aria-hidden="true">
+          <div id="stick-knob" class="stick-knob" aria-hidden="true"></div>
+        </div>
+        <div class="pad-label" aria-hidden="true">MOVE</div>
+      </div>
+
+      <button id="pad-dash" class="pad-dash" type="button" aria-label="Dash">DASH</button>
+    </div>
+
     <div id="hud" aria-hidden="true">
       <div class="row">
         <div class="pill" id="hud-left"></div>
         <div class="pill" id="hud-right"></div>
       </div>
       <div id="toast"></div>
-    </div>
-  </div>
-
-  <div id="rotate-hint" aria-hidden="true">
-    <div class="rotate-card">
-      <div class="rotate-title">가로로 돌려줘</div>
-      <div class="rotate-sub">(가로 모드가 더 잘 맞아)</div>
     </div>
   </div>
 

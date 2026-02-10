@@ -3,7 +3,7 @@
   "short_name": "Delivery Dash",
   "start_url": "./",
   "display": "fullscreen",
-  "orientation": "landscape",
+  "orientation": "portrait",
   "background_color": "#070a12",
   "theme_color": "#070a12",
   "icons": [

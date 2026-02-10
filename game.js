@@ -40,41 +40,11 @@
     }
   })();
 
-  // Mobile: 웹은 기본 가로모드 "강제"가 불가해서,
-  // 1) 가능하면 Screen Orientation API로 landscape lock 시도 (유저 제스처 필요)
-  // 2) 안 되면 세로일 때 안내 오버레이를 띄움
-  function isPortrait() {
-    try {
-      return window.matchMedia?.('(orientation: portrait)')?.matches ?? (window.innerHeight > window.innerWidth);
-    } catch {
-      return window.innerHeight > window.innerWidth;
-    }
-  }
 
-  function updatePortraitClass() {
-    if (!isTouchDevice) return;
-    document.body.classList.toggle('portrait', isPortrait());
-  }
-
-  async function requestLandscapeLock() {
-    if (!isTouchDevice) return;
-    try {
-      if (screen.orientation?.lock) {
-        await screen.orientation.lock('landscape');
-      }
-    } catch {
-      // ignore
-    }
-    updatePortraitClass();
-  }
-
-  window.addEventListener('resize', updatePortraitClass, { passive: true });
-  window.addEventListener('orientationchange', updatePortraitClass, { passive: true });
-  updatePortraitClass();
-
-  // Touch controls: left-half virtual stick, right-half tap = dash
+  // Touch controls: left stick + dash button (DOM gamepad UI on mobile)
   const touch = {
-    stick: { active: false, pointerId: null, baseX: 0, baseY: 0, curX: 0, curY: 0, radiusCss: 60 },
+    // stick center/cur are in CSS pixels (screen space)
+    stick: { active: false, pointerId: null, centerXCss: 0, centerYCss: 0, curXCss: 0, curYCss: 0, radiusCss: 92 },
     axisX: 0,
     axisY: 0,
     dashRequested: false,
@@ -89,36 +59,86 @@
     return { x, y, rect, xCss, yCss };
   }
 
+  // DOM gamepad UI (shown on mobile)
+  const padLeft = document.getElementById('pad-left');
+  const dashBtn = document.getElementById('pad-dash');
+  const stickKnob = document.getElementById('stick-knob');
+
+  function setKnob(dx, dy) {
+    if (!stickKnob) return;
+    stickKnob.style.setProperty('--dx', `${dx.toFixed(1)}px`);
+    stickKnob.style.setProperty('--dy', `${dy.toFixed(1)}px`);
+  }
+
   function resetStick() {
     touch.stick.active = false;
     touch.stick.pointerId = null;
     touch.axisX = 0;
     touch.axisY = 0;
+    setKnob(0, 0);
   }
 
-  function updateStickAxis(rect) {
-    // Work in CSS pixels so radius feel is consistent across screen sizes
+  function updateStickAxisFromPad() {
     const st = touch.stick;
-    const dxWorld = st.curX - st.baseX;
-    const dyWorld = st.curY - st.baseY;
-    const dxCss = dxWorld * (rect.width / W);
-    const dyCss = dyWorld * (rect.height / H);
+    const dx = st.curXCss - st.centerXCss;
+    const dy = st.curYCss - st.centerYCss;
 
     const r = st.radiusCss;
-    const d = Math.hypot(dxCss, dyCss) || 1;
+    const d = Math.hypot(dx, dy) || 1;
     const k = Math.min(1, r / d);
 
-    const nx = (dxCss * k) / r;
-    const ny = (dyCss * k) / r;
+    const ndx = dx * k;
+    const ndy = dy * k;
 
-    const m = Math.hypot(nx, ny);
-    if (m > 1) {
-      touch.axisX = nx / m;
-      touch.axisY = ny / m;
-    } else {
-      touch.axisX = nx;
-      touch.axisY = ny;
-    }
+    touch.axisX = ndx / r;
+    touch.axisY = ndy / r;
+    setKnob(ndx, ndy);
+  }
+
+  if (padLeft) {
+    padLeft.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    padLeft.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      lastTouchTs = performance.now();
+      padLeft.setPointerCapture?.(e.pointerId);
+
+      touch.stick.active = true;
+      touch.stick.pointerId = e.pointerId;
+      const rect = padLeft.getBoundingClientRect();
+      touch.stick.centerXCss = rect.left + rect.width * 0.5;
+      touch.stick.centerYCss = rect.top + rect.height * 0.5;
+      touch.stick.curXCss = e.clientX;
+      touch.stick.curYCss = e.clientY;
+      updateStickAxisFromPad();
+    }, { passive: false });
+
+    padLeft.addEventListener('pointermove', (e) => {
+      if (!touch.stick.active) return;
+      if (touch.stick.pointerId !== e.pointerId) return;
+      e.preventDefault();
+      lastTouchTs = performance.now();
+      touch.stick.curXCss = e.clientX;
+      touch.stick.curYCss = e.clientY;
+      updateStickAxisFromPad();
+    }, { passive: false });
+
+    padLeft.addEventListener('pointerup', (e) => {
+      if (touch.stick.active && touch.stick.pointerId === e.pointerId) resetStick();
+    });
+
+    padLeft.addEventListener('pointercancel', (e) => {
+      if (touch.stick.active && touch.stick.pointerId === e.pointerId) resetStick();
+    });
+  }
+
+  if (dashBtn) {
+    dashBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+    dashBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      lastTouchTs = performance.now();
+      touch.dashRequested = true;
+    }, { passive: false });
   }
 
   function pointInRect(px, py, r) {
@@ -130,11 +150,10 @@
   canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     lastTouchTs = performance.now();
-    canvas.setPointerCapture?.(e.pointerId);
 
-    // Tap to start/restart (mobile friendly)
-    if (state.mode === 'title') { requestLandscapeLock(); startGame(); return; }
-    if (state.gameOver) { requestLandscapeLock(); startGame(); return; }
+    // Tap to start/restart
+    if (state.mode === 'title') { startGame(); return; }
+    if (state.gameOver) { startGame(); return; }
 
     const ev = eventToWorld(e);
 
@@ -151,24 +170,7 @@
       return;
     }
 
-    if (state.mode !== 'playing') return;
-
-    const side = ev.xCss < ev.rect.width * 0.5 ? 'left' : 'right';
-
-    if (side === 'left') {
-      if (!touch.stick.active) {
-        touch.stick.active = true;
-        touch.stick.pointerId = e.pointerId;
-        touch.stick.baseX = ev.x;
-        touch.stick.baseY = ev.y;
-        touch.stick.curX = ev.x;
-        touch.stick.curY = ev.y;
-        touch.axisX = 0;
-        touch.axisY = 0;
-      }
-    } else {
-      touch.dashRequested = true;
-    }
+    // During play, canvas taps are ignored (mobile uses the gamepad UI below the map).
   }, { passive: false });
 
   canvas.addEventListener('pointermove', (e) => {
@@ -268,6 +270,8 @@
     mines: [],
     explosions: [],
 
+    obstacles: [],
+
     pkg: null,
     drop: null,
 
@@ -332,35 +336,41 @@
 
   function spawnPackage() {
     const pad = 40;
-    state.pkg = {
-      x: rand(pad, W - pad),
-      y: rand(pad, H - pad),
-      r: 10,
-      pulse: rand(0, Math.PI * 2),
-    };
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const x = rand(pad, W - pad);
+      const y = rand(pad, H - pad);
+      if (circleHitsObstacles(x, y, 16)) continue;
+      state.pkg = { x, y, r: 10, pulse: rand(0, Math.PI * 2) };
+      return;
+    }
+    // fallback
+    state.pkg = { x: W * 0.5, y: H * 0.25, r: 10, pulse: rand(0, Math.PI * 2) };
   }
 
   function spawnDropZone() {
     const p = state.player;
-    // Prefer corners-ish to make routes.
+    // Prefer top/bottom-ish to make routes in portrait map.
     const pad = 70;
     const spots = [
+      { x: W * 0.5, y: pad },
+      { x: W * 0.5, y: H - pad },
       { x: pad, y: pad },
       { x: W - pad, y: pad },
       { x: pad, y: H - pad },
       { x: W - pad, y: H - pad },
-      { x: W * 0.5, y: pad },
-      { x: W * 0.5, y: H - pad },
-      { x: pad, y: H * 0.5 },
-      { x: W - pad, y: H * 0.5 },
     ];
-    const s = spots[(Math.random() * spots.length) | 0];
-    state.drop = {
-      x: s.x + rand(-30, 30),
-      y: s.y + rand(-30, 30),
-      r: 28 + (p?.dropBonus || 0),
-      pulse: rand(0, Math.PI * 2),
-    };
+
+    for (let attempt = 0; attempt < 24; attempt++) {
+      const s = spots[(Math.random() * spots.length) | 0];
+      const x = s.x + rand(-30, 30);
+      const y = s.y + rand(-30, 30);
+      const r = 28 + (p?.dropBonus || 0);
+      if (circleHitsObstacles(x, y, r + 8)) continue;
+      state.drop = { x, y, r, pulse: rand(0, Math.PI * 2) };
+      return;
+    }
+
+    state.drop = { x: W * 0.5, y: H - pad, r: 28 + (p?.dropBonus || 0), pulse: rand(0, Math.PI * 2) };
   }
 
   function spawnMine() {
@@ -379,6 +389,99 @@
   function circleHit(ax, ay, ar, bx, by, br) {
     const dx = ax - bx, dy = ay - by;
     return (dx * dx + dy * dy) <= (ar + br) * (ar + br);
+  }
+
+  function circleRectHit(cx, cy, cr, rx, ry, rw, rh) {
+    const nx = clamp(cx, rx, rx + rw);
+    const ny = clamp(cy, ry, ry + rh);
+    const dx = cx - nx;
+    const dy = cy - ny;
+    return (dx * dx + dy * dy) <= cr * cr;
+  }
+
+  function resolveCircleRect(ent, r, rect) {
+    const nx = clamp(ent.x, rect.x, rect.x + rect.w);
+    const ny = clamp(ent.y, rect.y, rect.y + rect.h);
+    let dx = ent.x - nx;
+    let dy = ent.y - ny;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= r * r) return false;
+
+    // If exactly inside (rare), push out to nearest side.
+    if (dx === 0 && dy === 0) {
+      const left = ent.x - rect.x;
+      const right = (rect.x + rect.w) - ent.x;
+      const top = ent.y - rect.y;
+      const bottom = (rect.y + rect.h) - ent.y;
+      const m = Math.min(left, right, top, bottom);
+      if (m === left) ent.x = rect.x - r;
+      else if (m === right) ent.x = rect.x + rect.w + r;
+      else if (m === top) ent.y = rect.y - r;
+      else ent.y = rect.y + rect.h + r;
+      return true;
+    }
+
+    const dist = Math.sqrt(d2) || 1;
+    const push = (r - dist) + 0.01;
+    ent.x += (dx / dist) * push;
+    ent.y += (dy / dist) * push;
+    return true;
+  }
+
+  function circleHitsObstacles(x, y, r) {
+    for (const o of state.obstacles) {
+      if (circleRectHit(x, y, r, o.x, o.y, o.w, o.h)) return true;
+    }
+    return false;
+  }
+
+  function resolveCircleVsObstacles(ent, r) {
+    // resolve a few iterations to avoid corner sticking
+    for (let iter = 0; iter < 4; iter++) {
+      let moved = false;
+      for (const o of state.obstacles) {
+        if (resolveCircleRect(ent, r, o)) moved = true;
+      }
+      if (!moved) break;
+    }
+  }
+
+  function spawnObstacles() {
+    state.obstacles = [];
+
+    // small set of rectangles; keep center area less crowded
+    const count = 7;
+    const pad = 22;
+    const avoidX = W * 0.5;
+    const avoidY = H * 0.5;
+
+    for (let i = 0; i < count; i++) {
+      for (let attempt = 0; attempt < 40; attempt++) {
+        const w = 70 + Math.random() * 120;
+        const h = 40 + Math.random() * 110;
+        const x = rand(pad, W - pad - w);
+        const y = rand(pad, H - pad - h);
+
+        // avoid spawning too close to the player's initial area
+        const cx = x + w * 0.5;
+        const cy = y + h * 0.5;
+        if (Math.hypot(cx - avoidX, cy - avoidY) < 160) continue;
+
+        // avoid overlaps with other obstacles
+        let ok = true;
+        for (const o of state.obstacles) {
+          const sep = 18;
+          if (!(x + w + sep < o.x || x > o.x + o.w + sep || y + h + sep < o.y || y > o.y + o.h + sep)) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) continue;
+
+        state.obstacles.push({ x, y, w, h });
+        break;
+      }
+    }
   }
 
   function resetWorld() {
@@ -401,6 +504,14 @@
     state.bullets = [];
     state.mines = [];
     state.explosions = [];
+    state.obstacles = [];
+
+    state.upgradeChoices = null;
+    state.uiUpgradeBoxes = null;
+
+    spawnObstacles();
+    spawnPackage();
+    spawnDropZone();
 
     state.upgradeChoices = null;
     state.uiUpgradeBoxes = null;
@@ -638,6 +749,9 @@
 
     p.x = clamp(p.x, p.r, W - p.r);
     p.y = clamp(p.y, p.r, H - p.r);
+    resolveCircleVsObstacles(p, p.r);
+    p.x = clamp(p.x, p.r, W - p.r);
+    p.y = clamp(p.y, p.r, H - p.r);
 
     // Mines
     for (let i = state.mines.length - 1; i >= 0; i--) {
@@ -712,6 +826,15 @@
         state.bullets.splice(i, 1);
         continue;
       }
+
+      // obstacles
+      for (const o of state.obstacles) {
+        if (circleRectHit(b.x, b.y, b.r, o.x, o.y, o.w, o.h)) {
+          state.bullets.splice(i, 1);
+          break;
+        }
+      }
+      if (!state.bullets[i]) continue;
       if (circleHit(p.x, p.y, p.r, b.x, b.y, b.r)) {
         state.bullets.splice(i, 1);
         damagePlayer(1, '피격!');
@@ -801,6 +924,7 @@
 
       d.x = clamp(d.x, -30, W + 30);
       d.y = clamp(d.y, -30, H + 30);
+      resolveCircleVsObstacles(d, d.r);
 
       // Contact damage
       if (d.hitCd <= 0 && circleHit(p.x, p.y, p.r, d.x, d.y, d.r)) {
@@ -857,6 +981,19 @@
     ctx.fillStyle = 'rgba(0,0,0,.15)';
     ctx.fillRect(0, 0, W, H);
     drawGrid();
+
+    // obstacles
+    for (const o of state.obstacles) {
+      ctx.save();
+      ctx.globalAlpha = 0.95;
+      ctx.fillStyle = 'rgba(255,255,255,.06)';
+      ctx.strokeStyle = 'rgba(255,255,255,.14)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, o.x, o.y, o.w, o.h, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // mines
     for (const m of state.mines) {
@@ -1033,10 +1170,6 @@
       ctx.restore();
     }
 
-    // touch UI
-    if (isTouchDevice && state.mode === 'playing' && !state.gameOver) {
-      drawTouchUI();
-    }
 
     // overlays
     if (state.mode === 'title') {
@@ -1245,6 +1378,13 @@
   }
 
   function updateHud() {
+    // mobile dash button state
+    if (dashBtn) {
+      const p2 = state.player;
+      const ready = !!p2 && p2.dashCd <= 0 && p2.dashActive <= 0 && state.mode === 'playing' && !state.gameOver;
+      dashBtn.classList.toggle('ready', ready);
+      dashBtn.classList.toggle('cooldown', !ready);
+    }
     const p = state.player;
     const dash = p ? (p.dashCd > 0 ? `${p.dashCd.toFixed(1)}s` : 'ready') : '-';
     const t = `${Math.ceil(state.timeLeft)}s`;
