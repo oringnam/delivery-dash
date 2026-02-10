@@ -13,10 +13,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <title>Delivery Dash</title>
-  <link rel="stylesheet" href="style.css?v=20260210-2358" />
+  <link rel="stylesheet" href="style.css?v=20260210-2359" />
 </head>
 <body>
   <div id="wrap">
+    <!-- HUD: keep above the map so it never covers gameplay -->
+    <div id="hud" aria-hidden="true">
+      <div class="row">
+        <div class="pill" id="hud-left"></div>
+        <div class="pill" id="hud-right"></div>
+      </div>
+      <div id="toast"></div>
+    </div>
+
     <!-- Portrait map: taller arena -->
     <canvas id="game" width="540" height="960" aria-label="Delivery Dash"></canvas>
 
@@ -31,16 +40,8 @@
 
       <button id="pad-dash" class="pad-dash" type="button" aria-label="Dash">DASH</button>
     </div>
-
-    <div id="hud" aria-hidden="true">
-      <div class="row">
-        <div class="pill" id="hud-left"></div>
-        <div class="pill" id="hud-right"></div>
-      </div>
-      <div id="toast"></div>
-    </div>
   </div>
 
-  <script src="game.js?v=20260210-2358"></script>
+  <script src="game.js?v=20260210-2359"></script>
 </body>
 </html>

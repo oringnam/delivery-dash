@@ -11,19 +11,26 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
 
 #wrap{
   height:100svh;
-  display:flex;
-  flex-direction:column;
+  display:grid;
+  grid-template-rows:auto minmax(0, 1fr) auto;
+  justify-items:center;
   align-items:center;
-  justify-content:flex-start;
   gap:10px;
   padding:10px;
   padding-bottom:calc(10px + env(safe-area-inset-bottom));
 }
 
-#game{
+#hud{
+  position:relative;
   width:min(96vw, 680px);
-  /* map should take almost all vertical space (except bottom controls) */
-  max-height:calc(100svh - 210px);
+  pointer-events:none;
+  padding:4px 2px 0;
+}
+
+#game{
+  height:100%;
+  width:auto;
+  max-width:min(96vw, 680px);
   aspect-ratio: 9 / 16;
   display:block;
   background: linear-gradient(180deg, rgba(10,14,30,.8), rgba(7,10,18,.95));
@@ -117,7 +124,7 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
   opacity:0.75;
 }
 
-#hud{position:fixed;left:0;right:0;top:0;pointer-events:none;padding:14px 16px;}
+/* #hud is in normal flow (above canvas) */
 .row{display:flex;gap:10px;justify-content:space-between;align-items:center;}
 .pill{background:var(--panel);border:1px solid rgba(255,255,255,.10);backdrop-filter: blur(8px);border-radius:999px;padding:8px 12px;font-size:14px;color:var(--muted);max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #toast{margin-top:10px;min-height:24px;color:rgba(255,255,255,.85);font-size:14px;text-align:center;text-shadow: 0 1px 0 rgba(0,0,0,.45);}
@@ -125,5 +132,5 @@ html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 60% 40
 @media (pointer: fine){
   /* desktop: hide on-screen controls */
   .controls{display:none;}
-  #game{max-height:92vh; aspect-ratio:16/9; width:min(96vw, 1200px);} 
+  #game{height:auto; max-height:92vh; aspect-ratio:16/9; width:min(96vw, 1200px); max-width:min(96vw, 1200px);} 
 }
