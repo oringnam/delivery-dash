@@ -10,12 +10,11 @@
   const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
-  const BUILD = '20260211-0016';
+  const BUILD = '20260211-0020';
 
-  // Level-up pacing: 3회 배달 -> 8회 -> 13회 ... (매번 +5)
-  const LEVELUP_START = 3;
-  const LEVELUP_STEP = 5;
-  const nextLevelUpAt = (levelUpCount) => LEVELUP_START + levelUpCount * LEVELUP_STEP;
+  // Level-up pacing (triangular numbers): 1 -> 3 -> 6 -> 10 -> ...
+  // next threshold after n level-ups completed = T(n+1) = (n+1)(n+2)/2
+  const nextLevelUpAt = (levelUpCount) => ((levelUpCount + 1) * (levelUpCount + 2)) / 2;
 
   const hudLeft = document.getElementById('hud-left');
   const hudRight = document.getElementById('hud-right');
@@ -269,7 +268,7 @@
 
     // level-ups
     levelUpCount: 0,
-    nextLevelUpAt: LEVELUP_START,
+    nextLevelUpAt: nextLevelUpAt(0),
 
     gameOver: false,
 
@@ -585,7 +584,8 @@
         state.bullets = [];
 
         // Re-spawn drones so they never start embedded in a new wall.
-        const keep = Math.max(1, state.drones.length);
+        // Also ramp difficulty slightly on level-up by adding +1 drone.
+        const keep = Math.max(1, state.drones.length + 1);
         state.drones = [];
         spawnDroneAtEdge(keep);
       }
@@ -606,7 +606,7 @@
     state.deliveries = 0;
 
     state.levelUpCount = 0;
-    state.nextLevelUpAt = LEVELUP_START;
+    state.nextLevelUpAt = nextLevelUpAt(0);
 
     state.difficulty = 0;
     state.enemySpeedMult = 1;
@@ -915,17 +915,25 @@
         state.difficulty += 1;
         state.shake = 10;
 
-        // Difficulty ramp: speed up drones, sometimes add one, sometimes mines
-        for (const d of state.drones) d.speed += 8;
-        if (state.deliveries % 3 === 0) spawnDroneAtEdge(1);
-        if (state.deliveries % 2 === 0) spawnMine();
+        // Difficulty ramp (scales with level)
+        const lv = state.levelUpCount;
+        for (const d of state.drones) d.speed += 8 * (1 + lv * 0.22);
 
-        // Level-up pacing: only at certain deliveries (3 -> 8 -> 13 ...)
+        const droneEvery = Math.max(1, 3 - Math.floor(lv / 2)); // higher level -> more frequent spawns
+        const mineEvery = Math.max(1, 2 - Math.floor(lv / 3));
+
+        if (state.deliveries % droneEvery === 0) spawnDroneAtEdge(1);
+        if (state.deliveries % mineEvery === 0) spawnMine();
+
+        // Level-up pacing: 1 -> 3 -> 6 -> 10 -> ...
         const shouldLevelUp = state.deliveries >= state.nextLevelUpAt;
 
         if (shouldLevelUp) {
           state.levelUpCount += 1;
           state.nextLevelUpAt = nextLevelUpAt(state.levelUpCount);
+
+          // Harder as you level up
+          state.enemySpeedMult = 1 + state.levelUpCount * 0.18;
 
           // Map changes on every level-up
           rerollMap('levelup');
